@@ -98,9 +98,10 @@ contract SStakingPool is ISPool, Governable {
         amount = amount.mul(stakingOf[farmer]).div(totalStaking);
         
         uint lasttime = lasttimeOf[farmer];
-        if(end == 0)                                                         // isNonLinear, endless
-            amount = amount.mul(now.sub(lasttime)).div(span);
-        else if(now < end)
+        if(end == 0) {                                                         // isNonLinear, endless
+            if(now.sub(lasttime) < span)
+                amount = amount.mul(now.sub(lasttime)).div(span);
+        }else if(now < end)
             amount = amount.mul(now.sub(lasttime)).div(end.sub(lasttime));
         else if(lasttime >= end)
             amount = 0;
