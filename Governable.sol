@@ -63,25 +63,11 @@ contract Initializable {
 }
 
 
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- *
- * Source https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-solidity/v2.1.3/contracts/ownership/Ownable.sol
- * This contract is copied here and renamed from the original to avoid clashes in the compiled artifacts
- * when the user imports a zos-lib contract (that transitively causes this contract to be compiled and added to the
- * build/artifacts folder) as well as the vanilla Ownable implementation from an openzeppelin version.
- */
-contract InitializableOwnable  is Initializable {
-    address private _owner;
+contract Governable is Initializable {
+    address public governor;
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event GovernorshipTransferred(address indexed previousGovernor, address indexed newGovernor);
 
-    /**
-     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-     * account.
-     */
     constructor () internal {
         initialize(msg.sender);
     }
@@ -90,65 +76,48 @@ contract InitializableOwnable  is Initializable {
      * @dev Contract initializer.
      * called once by the factory at time of deployment
      */
-    function initialize(address owner) virtual public initializer {
-        _owner = owner;
-        emit OwnershipTransferred(address(0), _owner);
+    function initialize(address governor_) virtual public initializer {
+        governor = governor_;
+        emit GovernorshipTransferred(address(0), governor);
     }
 
-    /**
-     * @return the address of the owner.
-     */
-    function owner() public view returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(isOwner());
+    modifier governance() {
+        require(msg.sender == governor);
         _;
     }
 
     /**
-     * @return true if `msg.sender` is the owner of the contract.
-     */
-    function isOwner() public view returns (bool) {
-        return msg.sender == _owner;
-    }
-
-    /**
-     * @dev Allows the current owner to relinquish control of the contract.
-     * @notice Renouncing to ownership will leave the contract without an owner.
-     * It will not be possible to call the functions with the `onlyOwner`
+     * @dev Allows the current governor to relinquish control of the contract.
+     * @notice Renouncing to governorship will leave the contract without an governor.
+     * It will not be possible to call the functions with the `governance`
      * modifier anymore.
      */
-    function renounceOwnership() public onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
+    function renounceGovernorship() public governance {
+        emit GovernorshipTransferred(governor, address(0));
+        governor = address(0);
     }
 
     /**
-     * @dev Allows the current owner to transfer control of the contract to a newOwner.
-     * @param newOwner The address to transfer ownership to.
+     * @dev Allows the current governor to transfer control of the contract to a newGovernor.
+     * @param newGovernor The address to transfer governorship to.
      */
-    function transferOwnership(address newOwner) public onlyOwner {
-        _transferOwnership(newOwner);
+    function transferGovernorship(address newGovernor) public governance {
+        _transferGovernorship(newGovernor);
     }
 
     /**
-     * @dev Transfers control of the contract to a newOwner.
-     * @param newOwner The address to transfer ownership to.
+     * @dev Transfers control of the contract to a newGovernor.
+     * @param newGovernor The address to transfer governorship to.
      */
-    function _transferOwnership(address newOwner) internal {
-        require(newOwner != address(0));
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+    function _transferGovernorship(address newGovernor) internal {
+        require(newGovernor != address(0));
+        emit GovernorshipTransferred(governor, newGovernor);
+        governor = newGovernor;
     }
 }
 
 
-contract InitializableConfigurable is InitializableOwnable {
+contract Configurable is Governable {
 
     mapping (bytes32 => uint) internal config;
     
@@ -173,13 +142,13 @@ contract InitializableConfigurable is InitializableOwnable {
         _setConfig(bytes32(uint(key) ^ uint(addr)), value);
     }
     
-    function setConfig(bytes32 key, uint value) external onlyOwner {
+    function setConfig(bytes32 key, uint value) external governance {
         _setConfig(key, value);
     }
-    function setConfig(bytes32 key, uint index, uint value) external onlyOwner {
+    function setConfig(bytes32 key, uint index, uint value) external governance {
         _setConfig(bytes32(uint(key) ^ index), value);
     }
-    function setConfig(bytes32 key, address addr, uint value) public onlyOwner {
+    function setConfig(bytes32 key, address addr, uint value) public governance {
         _setConfig(bytes32(uint(key) ^ uint(addr)), value);
     }
 }

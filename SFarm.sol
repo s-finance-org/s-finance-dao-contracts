@@ -4,8 +4,7 @@ pragma solidity ^0.6.0;
 //pragma experimental ABIEncoderV2;
 
 import "./SToken.sol";
-//import "./SLibrary.sol";
-import "./InitializableConfigurable.sol";
+import "./Governable.sol";
 
 interface IFarm {
     function crop() external view returns (address);
@@ -27,7 +26,7 @@ interface ISPool {
     function harvestCapacity(address farmer) external view returns (uint amount);
 }
 
-contract SStakingPool is ISPool, InitializableOwnable {
+contract SStakingPool is ISPool, Governable {
     using SafeMath for uint;
     //using TransferHelper for address;
 
@@ -53,7 +52,7 @@ contract SStakingPool is ISPool, InitializableOwnable {
 	    IERC20(underlying).totalSupply();           // just check
 	}
     
-    function setHarvestSpan(uint _span, bool isLinear) virtual override external onlyOwner {
+    function setHarvestSpan(uint _span, bool isLinear) virtual override external governance {
         span = _span;
         if(isLinear)
             end = now + _span;
@@ -121,7 +120,7 @@ contract SStakingPool is ISPool, InitializableOwnable {
     }
 } 
 
-contract SFarm is IFarm, InitializableOwnable {
+contract SFarm is IFarm, Governable {
     address override public crop;
 
 	constructor(address governor, address crop_) public {
@@ -133,7 +132,7 @@ contract SFarm is IFarm, InitializableOwnable {
         crop = crop_;
     }
     
-    function approvePool(address pool, uint amount) public onlyOwner {
+    function approvePool(address pool, uint amount) public governance {
         IERC20(crop).approve(pool, amount);
     }
     
