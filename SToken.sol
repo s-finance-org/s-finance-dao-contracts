@@ -784,20 +784,20 @@ contract OpenZeppelinUpgradesOwnable {
 
 contract SfgToken is ERC20 {
 
-	constructor(address SfgFarming) ERC20("Stable Finance Governance Token", "SFG") public {
+	constructor(address SfgFarm) ERC20("Stable Finance Governance Token", "SFG") public {
 		uint8 decimals = 18;
 		_setupDecimals(decimals);
 		
-		_mint(SfgFarming,  21000000 * 10 ** uint256(decimals));       // 100%, 21000000
+		_mint(SfgFarm,  21000000 * 10 ** uint256(decimals));       // 100%, 21000000
 	}
 }
 
 contract SfyToken is ERC20 {
 
-	constructor(address SfyFarming) ERC20("Stable Finance Yield Token", "SFY") public {
+	constructor(address SfyFarm) ERC20("Stable Finance Yield Token", "SFY") public {
 		uint8 decimals = 18;
 		_setupDecimals(decimals);
 		
-		_mint(SfyFarming,  21000000 * 10 ** uint256(decimals));       // 100%, 21000000
+		_mint(SfyFarm,  21000000 * 10 ** uint256(decimals));       // 100%, 21000000
 	}
 }
