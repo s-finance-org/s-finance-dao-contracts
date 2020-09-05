@@ -13,17 +13,17 @@ interface IFarm {
 interface ISPool {
     event Farming(address indexed farmer, address indexed from, uint amount);
     event Unfarming(address indexed farmer, address indexed to, uint amount);
-    event Harvest(address indexed farmer, address indexed to, uint amount);
+    event Harvest(address indexed farmer, address indexed to, uint[] amounts);
     
     function setHarvestSpan(uint _span, bool isLinear) external;
     function farming(uint amount) external;
     function farming(address from, uint amount) external;
     function unfarming() external returns (uint amount);
-    function unfarming(uint amount) external returns (uint amount_);
-    function unfarming(address to, uint amount) external returns (uint amount_);
-    function harvest() external returns (uint amount);
-    function harvest(address to) external returns (uint amount);
-    function harvestCapacity(address farmer) external view returns (uint amount);
+    function unfarming(uint amount) external returns (uint);
+    function unfarming(address to, uint amount) external returns (uint);
+    function harvest() external returns (uint[] memory amounts);
+    function harvest(address to) external returns (uint[] memory amounts);
+    function harvestCapacity(address farmer) external view returns (uint[] memory amounts);
 }
 
 contract SStakingPool is ISPool, Governable {
@@ -66,35 +66,61 @@ contract SStakingPool is ISPool, Governable {
     function farming(address from, uint amount) virtual override public {
         harvest();
         
-        IERC20(underlying).transferFrom(from, address(this), amount);
+        _farming(from, amount);
+        
         stakingOf[msg.sender] = stakingOf[msg.sender].add(amount);
         totalStaking = totalStaking.add(amount);
         
         emit Farming(msg.sender, from, amount);
     }
+    function _farming(address from, uint amount) virtual internal {
+        IERC20(underlying).transferFrom(from, address(this), amount);
+    }
     
     function unfarming() virtual override external returns (uint amount){
         return unfarming(msg.sender, stakingOf[msg.sender]);
     }
-    function unfarming(uint amount) virtual override external returns (uint amount_){
+    function unfarming(uint amount) virtual override external returns (uint){
         return unfarming(msg.sender, amount);
     }
-    function unfarming(address to, uint amount) virtual override public returns (uint amount_){
+    function unfarming(address to, uint amount) virtual override public returns (uint){
         harvest();
         
         totalStaking = totalStaking.sub(amount);
         stakingOf[msg.sender] = stakingOf[msg.sender].sub(amount);
-        IERC20(underlying).transfer(to, amount);
+        
+        _unfarming(to, amount);
         
         emit Unfarming(msg.sender, to, amount);
         return amount;
     }
+    function _unfarming(address to, uint amount) virtual internal returns (uint){
+        IERC20(underlying).transfer(to, amount);
+        return amount;
+    }
     
-    function harvestCapacity(address farmer) virtual override public view returns (uint amount) {
+    function harvest() virtual override public returns (uint[] memory amounts) {
+        return harvest(msg.sender);
+    }
+    function harvest(address to) virtual override public returns (uint[] memory amounts) {
+        amounts = harvestCapacity(msg.sender);
+        amounts = _harvest(to, amounts);
+    
+        lasttimeOf[msg.sender] = now;
+
+        emit Harvest(msg.sender, to, amounts);
+    }
+    function _harvest(address to, uint[] memory amounts) virtual internal returns (uint[] memory) {
+        if(amounts.length > 0 && amounts[0] > 0)
+            IERC20(IFarm(farm).crop()).transferFrom(farm, to, amounts[0]);
+        return amounts;
+    }
+    
+    function harvestCapacity(address farmer) virtual override public view returns (uint[] memory amounts) {
         if(span == 0 || totalStaking == 0)
-            return 0;
+            return amounts;
         
-        amount = IERC20(IFarm(farm).crop()).allowance(farm, address(this));
+        uint amount = IERC20(IFarm(farm).crop()).allowance(farm, address(this));
         amount = amount.mul(stakingOf[farmer]).div(totalStaking);
         
         uint lasttime = lasttimeOf[farmer];
@@ -105,19 +131,9 @@ contract SStakingPool is ISPool, Governable {
             amount = amount.mul(now.sub(lasttime)).div(end.sub(lasttime));
         else if(lasttime >= end)
             amount = 0;
-    }
-    
-    function harvest() virtual override public returns (uint amount) {
-        return harvest(msg.sender);
-    }
-    function harvest(address to) virtual override public returns (uint amount) {
-        amount = harvestCapacity(msg.sender);
-        if(amount > 0)
-            IERC20(IFarm(farm).crop()).transferFrom(farm, to, amount);
-
-        lasttimeOf[msg.sender] = now;
-
-        emit Harvest(msg.sender, to, amount);
+            
+        amounts = new uint[](1);
+        amounts[0] = amount;
     }
 } 
 
