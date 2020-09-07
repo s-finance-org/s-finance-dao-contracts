@@ -26,7 +26,7 @@ interface ISPool {
     function harvestCapacity(address farmer) external view returns (uint[] memory amounts);
 }
 
-contract SSimplePool is ISPool, Governable {
+contract SSimplePool is ISPool, Configurable {
     using SafeMath for uint;
     using TransferHelper for address;
 
@@ -104,16 +104,18 @@ contract SSimplePool is ISPool, Governable {
     }
     function harvest(address to) virtual override public returns (uint[] memory amounts) {
         amounts = harvestCapacity(msg.sender);
-        amounts = _harvest(to, amounts);
+        _harvest(to, amounts);
     
         lasttimeOf[msg.sender] = now;
 
         emit Harvest(msg.sender, to, amounts);
     }
-    function _harvest(address to, uint[] memory amounts) virtual internal returns (uint[] memory) {
-        if(amounts.length > 0 && amounts[0] > 0)
+    function _harvest(address to, uint[] memory amounts) virtual internal {
+        if(amounts.length > 0 && amounts[0] > 0) {
             IFarm(farm).crop().safeTransferFrom(farm, to, amounts[0]);
-        return amounts;
+            if(config['teamAddr'] != 0 && config['teamRatio'] != 0)
+                IFarm(farm).crop().safeTransferFrom(farm, address(config['teamAddr']), amounts[0].mul(config['teamRatio']).div(1 ether));
+        }
     }
     
     function harvestCapacity(address farmer) virtual override public view returns (uint[] memory amounts) {
@@ -137,7 +139,7 @@ contract SSimplePool is ISPool, Governable {
     }
 } 
 
-contract SExactPool is ISPool, Governable {
+contract SExactPool is ISPool, Configurable {
     using SafeMath for uint;
     using TransferHelper for address;
 
@@ -239,8 +241,11 @@ contract SExactPool is ISPool, Governable {
         emit Harvest(msg.sender, to, amounts);
     }
     function _harvest(address to, uint[] memory amounts) virtual internal {
-        if(amounts.length > 0 && amounts[0] > 0)
+        if(amounts.length > 0 && amounts[0] > 0) {
             IFarm(farm).crop().safeTransferFrom(farm, to, amounts[0]);
+            if(config['teamAddr'] != 0 && config['teamRatio'] != 0)
+                IFarm(farm).crop().safeTransferFrom(farm, address(config['teamAddr']), amounts[0].mul(config['teamRatio']).div(1 ether));
+        }
     }
     
     function harvestCapacity(address farmer) virtual override public view returns (uint[] memory amounts) {
@@ -332,8 +337,8 @@ contract SCurvePool is SExactPool, ICurveGauge {
         else
             amounts = new uint[](3);
         
-        amounts[1] = 0;
         amounts[0] = amount;
+        amounts[1] = 0;
         
         if(span == 0 || totalStaking == 0)
             return amounts;
