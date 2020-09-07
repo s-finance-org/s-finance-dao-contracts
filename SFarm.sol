@@ -223,6 +223,7 @@ contract SCurvePool is SStakingPool {
             delta = IERC20(reward).balanceOf(address(this));
             ICurveGauge(gauge).claim_rewards();
             delta = IERC20(reward).balanceOf(address(this)).sub(delta);
+            //uint delta = _harvestDelta3();
             amounts[2] = _harvestCapacity(msg.sender, delta, sumReward3Per, sumReward3PerOf[msg.sender]);
             
             if(delta > 0)
@@ -245,12 +246,50 @@ contract SCurvePool is SStakingPool {
     }
 
     function harvestCapacity(address farmer) virtual override public view returns (uint[] memory amounts) {
-        amounts = new uint[](2);
-        amounts[0] = _harvestCapacity(farmer, _harvestDelta(),  sumRewardPer,  sumRewardPerOf[farmer]);
+        if(reward == address(0))
+            amounts = new uint[](2);
+        else {
+            amounts = new uint[](3);
+            amounts[2] = _harvestCapacity(farmer, _harvestDelta3(), sumReward3Per, sumReward3PerOf[farmer]);
+        }    
         amounts[1] = _harvestCapacity(farmer, _harvestDelta2(), sumReward2Per, sumReward2PerOf[farmer]);
+        amounts[0] = _harvestCapacity(farmer, _harvestDelta(),  sumRewardPer,  sumRewardPerOf[farmer]);
     }    
     function _harvestDelta2() virtual internal view returns(uint amount) {
         amount = ICurveGauge(gauge).claimable_tokens(address(this));
+    }
+    function _harvestDelta3() virtual internal view returns(uint amount) {
+        amount = ICurveGauge(gauge).claimable_reward(address(this));
+    }
+    
+    // compatible ICurveGauge
+    function deposit(uint _value) external {
+        farming(msg.sender, _value);
+    }
+    //function deposit(uint, address) external {
+    //    require(false, 'no support deposit(uint, address)');
+    //}
+    function withdraw(uint _value) external {
+        unfarming(msg.sender, _value);
+    }
+    function withdraw(uint _value, bool claim_rewards) external {
+        claim_rewards;
+        unfarming(msg.sender, _value);
+    }
+    function claim_rewards() external {
+        harvest();
+    }
+    //function claim_rewards(address) external {
+    //    require(false, 'no support claim_rewards(address)');
+    //}
+    function claimable_reward(address addr) external view returns (uint) {
+        return harvestCapacity(addr)[2];
+    }
+    function claimable_tokens(address addr) external view returns (uint) {
+        return harvestCapacity(addr)[1];
+    }
+    function integrate_checkpoint() external view returns (uint) {
+        return lasttime;
     }
 }
 
