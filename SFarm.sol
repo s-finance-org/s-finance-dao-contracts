@@ -26,7 +26,118 @@ interface ISPool {
     function harvestCapacity(address farmer) external view returns (uint[] memory amounts);
 }
 
-contract SStakingPool is ISPool, Governable {
+contract SSimplePool is ISPool, Governable {
+    using SafeMath for uint;
+    using TransferHelper for address;
+
+	address public farm;
+	address public underlying;
+	uint public span;
+	uint public end;
+	uint public totalStaking;
+	mapping(address => uint) public stakingOf;
+	mapping(address => uint) public lasttimeOf;
+	
+	constructor(address _farm, address _underlying) public {
+		initialize(msg.sender, _farm, _underlying);
+	}
+	
+	function initialize(address governor, address _farm, address _underlying) public initializer {
+	    super.initialize(governor);
+	    
+	    farm     = _farm;
+	    underlying  = _underlying;
+	    
+	    IFarm(farm).crop();                         // just check
+	    IERC20(underlying).totalSupply();           // just check
+	}
+    
+    function setHarvestSpan(uint _span, bool isLinear) virtual override external governance {
+        span = _span;
+        if(isLinear)
+            end = now + _span;
+        else
+            end = 0;
+    }
+    
+    function farming(uint amount) virtual override external {
+        farming(msg.sender, amount);
+    }
+    function farming(address from, uint amount) virtual override public {
+        harvest();
+        
+        _farming(from, amount);
+        
+        stakingOf[msg.sender] = stakingOf[msg.sender].add(amount);
+        totalStaking = totalStaking.add(amount);
+        
+        emit Farming(msg.sender, from, amount);
+    }
+    function _farming(address from, uint amount) virtual internal {
+        underlying.safeTransferFrom(from, address(this), amount);
+    }
+    
+    function unfarming() virtual override external returns (uint amount){
+        return unfarming(msg.sender, stakingOf[msg.sender]);
+    }
+    function unfarming(uint amount) virtual override external returns (uint){
+        return unfarming(msg.sender, amount);
+    }
+    function unfarming(address to, uint amount) virtual override public returns (uint){
+        harvest();
+        
+        totalStaking = totalStaking.sub(amount);
+        stakingOf[msg.sender] = stakingOf[msg.sender].sub(amount);
+        
+        _unfarming(to, amount);
+        
+        emit Unfarming(msg.sender, to, amount);
+        return amount;
+    }
+    function _unfarming(address to, uint amount) virtual internal returns (uint){
+        underlying.safeTransfer(to, amount);
+        return amount;
+    }
+    
+    function harvest() virtual override public returns (uint[] memory amounts) {
+        return harvest(msg.sender);
+    }
+    function harvest(address to) virtual override public returns (uint[] memory amounts) {
+        amounts = harvestCapacity(msg.sender);
+        amounts = _harvest(to, amounts);
+    
+        lasttimeOf[msg.sender] = now;
+
+        emit Harvest(msg.sender, to, amounts);
+    }
+    function _harvest(address to, uint[] memory amounts) virtual internal returns (uint[] memory) {
+        if(amounts.length > 0 && amounts[0] > 0)
+            IFarm(farm).crop().safeTransferFrom(farm, to, amounts[0]);
+        return amounts;
+    }
+    
+    function harvestCapacity(address farmer) virtual override public view returns (uint[] memory amounts) {
+        if(span == 0 || totalStaking == 0)
+            return amounts;
+        
+        uint amount = IERC20(IFarm(farm).crop()).allowance(farm, address(this));
+        amount = amount.mul(stakingOf[farmer]).div(totalStaking);
+        
+        uint lasttime = lasttimeOf[farmer];
+        if(end == 0) {                                                         // isNonLinear, endless
+            if(now.sub(lasttime) < span)
+                amount = amount.mul(now.sub(lasttime)).div(span);
+        }else if(now < end)
+            amount = amount.mul(now.sub(lasttime)).div(end.sub(lasttime));
+        else if(lasttime >= end)
+            amount = 0;
+            
+        amounts = new uint[](1);
+        amounts[0] = amount;
+    }
+} 
+
+contract SExactPool is ISPool, Governable {
     using SafeMath for uint;
     using TransferHelper for address;
 
@@ -157,7 +268,26 @@ contract SStakingPool is ISPool, Governable {
     }
 } 
 
-contract SCurvePool is SStakingPool {
+
+interface ICurveGauge {
+    function deposit(uint _value) external;
+    function deposit(uint _value, address addr) external;
+    function withdraw(uint _value) external;
+    function withdraw(uint _value, bool claim_rewards) external;
+    function claim_rewards() external;
+    function claim_rewards(address addr) external;
+    function claimable_reward(address addr) external view returns (uint);
+    function claimable_tokens(address addr) external view returns (uint);
+    function integrate_checkpoint() external view returns (uint);
+}
+
+interface ICurveMinter {
+    function token() external view returns (address);
+    function mint(address _gauge) external;
+}
+
+
+contract SCurvePool is SExactPool, ICurveGauge {
 	address internal constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 	address public minter;
 	address public gauge;
@@ -167,7 +297,7 @@ contract SCurvePool is SStakingPool {
 	uint public sumReward2Per;
 	uint public sumReward3Per;
 	
-	constructor(address _farm, address _underlying, address _minter, address _gauge, address _reward) SStakingPool(_farm, _underlying) public {
+	constructor(address _farm, address _underlying, address _minter, address _gauge, address _reward) SExactPool(_farm, _underlying) public {
 		initialize(msg.sender, _farm, _underlying, _minter, _gauge, _reward);
 	}
 	
@@ -263,32 +393,32 @@ contract SCurvePool is SStakingPool {
     }
     
     // compatible ICurveGauge
-    function deposit(uint _value) external {
+    function deposit(uint _value) override external {
         farming(msg.sender, _value);
     }
-    //function deposit(uint, address) external {
-    //    require(false, 'no support deposit(uint, address)');
-    //}
-    function withdraw(uint _value) external {
+    function deposit(uint, address) override external {
+        require(false, 'no support deposit(uint, address)');
+    }
+    function withdraw(uint _value) override external {
         unfarming(msg.sender, _value);
     }
-    function withdraw(uint _value, bool claim_rewards) external {
+    function withdraw(uint _value, bool claim_rewards) override external {
         claim_rewards;
         unfarming(msg.sender, _value);
     }
-    function claim_rewards() external {
+    function claim_rewards() override external {
         harvest();
     }
-    //function claim_rewards(address) external {
-    //    require(false, 'no support claim_rewards(address)');
-    //}
-    function claimable_reward(address addr) external view returns (uint) {
+    function claim_rewards(address) override external {
+        require(false, 'no support claim_rewards(address)');
+    }
+    function claimable_reward(address addr) override external view returns (uint) {
         return harvestCapacity(addr)[2];
     }
-    function claimable_tokens(address addr) external view returns (uint) {
+    function claimable_tokens(address addr) override external view returns (uint) {
         return harvestCapacity(addr)[1];
     }
-    function integrate_checkpoint() external view returns (uint) {
+    function integrate_checkpoint() override external view returns (uint) {
         return lasttime;
     }
 }
@@ -312,24 +442,6 @@ contract SFarm is IFarm, Governable {
         crop.safeApprove(pool, amount);
     }
     
-}
-
-
-interface ICurveGauge {
-    function deposit(uint _value) external;
-    function deposit(uint _value, address addr) external;
-    function withdraw(uint _value) external;
-    function withdraw(uint _value, bool claim_rewards) external;
-    function claim_rewards() external;
-    function claim_rewards(address addr) external;
-    function claimable_reward(address addr) external view returns (uint);
-    function claimable_tokens(address addr) external view returns (uint);
-    function integrate_checkpoint() external view returns (uint);
-}
-
-interface ICurveMinter {
-    function token() external view returns (address);
-    function mint(address _gauge) external;
 }
 
 
