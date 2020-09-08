@@ -68,10 +68,6 @@ contract Governable is Initializable {
 
     event GovernorshipTransferred(address indexed previousGovernor, address indexed newGovernor);
 
-    constructor () internal {
-        initialize(msg.sender);
-    }
-    
     /**
      * @dev Contract initializer.
      * called once by the factory at time of deployment

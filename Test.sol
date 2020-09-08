@@ -9,10 +9,6 @@ import "./SFarm.sol";
 contract TestGauge is SSimplePool, ICurveGauge, ICurveMinter {
     address public reward;
     
-	constructor(address _farm, address _underlying, address _reward) SSimplePool(_farm, _underlying) public {
-		initialize(msg.sender, _farm, _underlying, _reward);
-	}
-	
 	function initialize(address governor, address _farm, address _underlying, address _reward) public initializer {
 	    super.initialize(governor, _farm, _underlying);
 	    
@@ -65,7 +61,18 @@ contract TestReward is ERC20 {
 		uint8 decimals = 0;
 		_setupDecimals(decimals);
 		
-		_mint(msg.sender,  21000000 * 10 ** uint256(decimals));
+		_mint(msg.sender,  10000 * 10 ** uint256(decimals));
+	}
+}
+
+
+contract TestUnderlying is ERC20 {
+
+	constructor() ERC20("Underlying for Test", "Underlying") public {
+		uint8 decimals = 0;
+		_setupDecimals(decimals);
+		
+		_mint(msg.sender,  1000000 * 10 ** uint256(decimals));
 	}
 }
 

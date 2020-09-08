@@ -38,10 +38,6 @@ contract SSimplePool is ISPool, Configurable {
 	mapping(address => uint) public stakingOf;
 	mapping(address => uint) public lasttimeOf;
 	
-	constructor(address _farm, address _underlying) public {
-		initialize(msg.sender, _farm, _underlying);
-	}
-	
 	function initialize(address governor, address _farm, address _underlying) public initializer {
 	    super.initialize(governor);
 	    
@@ -153,10 +149,6 @@ contract SExactPool is ISPool, Configurable {
 	uint public sumRewardPer;
 	uint public bufReward;
 	uint public lasttime;
-	
-	constructor(address _farm, address _underlying) public {
-		initialize(msg.sender, _farm, _underlying);
-	}
 	
 	function initialize(address governor, address _farm, address _underlying) public initializer {
 	    super.initialize(governor);
@@ -302,10 +294,6 @@ contract SCurvePool is SExactPool, ICurveGauge {
 	uint public sumReward2Per;
 	uint public sumReward3Per;
 	
-	constructor(address _farm, address _underlying, address _minter, address _gauge, address _reward) SExactPool(_farm, _underlying) public {
-		initialize(msg.sender, _farm, _underlying, _minter, _gauge, _reward);
-	}
-	
 	function initialize(address governor, address _farm, address _underlying, address _minter, address _gauge, address _reward) public initializer {
 	    super.initialize(governor, _farm, _underlying);
 	    
@@ -434,10 +422,6 @@ contract SFarm is IFarm, Governable {
 
     address override public crop;
 
-	constructor(address governor, address crop_) public {
-		initialize(governor, crop_);
-	}
-	
     function initialize(address governor, address crop_) public initializer {
         super.initialize(governor);
         crop = crop_;
