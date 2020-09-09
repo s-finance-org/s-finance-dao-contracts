@@ -308,6 +308,7 @@ contract SCurvePool is SExactPool, ICurveGauge {
     
     function _farming(address from, uint amount) virtual override internal {
         super._farming(from, amount);                   // underlying.safeTransferFrom(from, address(this), amount);
+        underlying.safeApprove(gauge, amount);
         ICurveGauge(gauge).deposit(amount);
     }
 

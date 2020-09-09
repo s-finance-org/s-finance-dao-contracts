@@ -32,8 +32,8 @@ contract TestGauge is SSimplePool, ICurveGauge, ICurveMinter {
     function claim_rewards() override external {
         reward.safeTransfer(msg.sender, 10);
     }
-    function claim_rewards(address) override external {
-        require(false, 'no support claim_rewards(address)');
+    function claim_rewards(address addr) override external {
+        reward.safeTransfer(addr, 10);
     }
     function claimable_reward(address addr) override external view returns (uint) {
         addr;
