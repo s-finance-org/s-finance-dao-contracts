@@ -3,54 +3,24 @@
 pragma solidity ^0.6.0;
 //pragma experimental ABIEncoderV2;
 
-import "./SFarm.sol";
+import "./SMinter.sol";
 
 
-contract TestGauge is SSimplePool, ICurveGauge, ICurveMinter {
-    address public reward;
-    
-	function initialize(address governor, address _farm, address _underlying, address _reward) public initializer {
-	    super.initialize(governor, _farm, _underlying);
+contract TestGauge is SSimpleGauge {
+
+	function initialize(address governor, address _minter, address _lp_token, address _rewarded_token) public initializer {
+	    super.initialize(governor, _minter, _lp_token);
 	    
-	    reward     = _reward;
-	    IERC20(reward).totalSupply();           // just check
+	    rewarded_token = _rewarded_token;
+	    IERC20(_rewarded_token).totalSupply();           // just check
 	}
     
-    function deposit(uint _value) override external {
-        farming(msg.sender, _value);
+    function claim_rewards(address addr) override public {
+        rewarded_token.safeTransfer(addr, 10);
     }
-    function deposit(uint, address) override external {
-        require(false, 'no support deposit(uint, address)');
-    }
-    function withdraw(uint _value) override external {
-        unfarming(msg.sender, _value);
-    }
-    function withdraw(uint _value, bool claim_rewards) override external {
-        claim_rewards;
-        unfarming(msg.sender, _value);
-    }
-    function claim_rewards() override external {
-        reward.safeTransfer(msg.sender, 10);
-    }
-    function claim_rewards(address addr) override external {
-        reward.safeTransfer(addr, 10);
-    }
-    function claimable_reward(address addr) override external view returns (uint) {
+    function claimable_reward(address addr) override public view returns (uint) {
         addr;
         return 10;
-    }
-    function claimable_tokens(address addr) override external view returns (uint) {
-        return harvestCapacity(addr)[1];
-    }
-    function integrate_checkpoint() override external view returns (uint) {
-        return now;
-    }
-    function token() override external view returns (address) {
-        return 0xD533a949740bb3306d119CC777fa900bA034cd52;      // CRV
-    }
-    function mint(address _gauge) override external {
-        _gauge;
-        harvest();
     }
 }
 
@@ -66,7 +36,7 @@ contract TestReward is ERC20 {
 }
 
 
-contract TestUnderlying is ERC20 {
+contract TestLPToken is ERC20 {
 
 	constructor() ERC20("Underlying for Test", "Underlying") public {
 		uint8 decimals = 0;
