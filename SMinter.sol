@@ -120,9 +120,8 @@ contract SSimpleGauge is LiquidityGauge, Configurable {
 	    super.initialize(governor);
 	    
 	    minter      = _minter;
+	    crv_token   = Minter(_minter).token();
 	    lp_token    = _lp_token;
-	    
-	    Minter(minter).token();                // just check
 	    IERC20(lp_token).totalSupply();          // just check
 	}
     
@@ -298,10 +297,9 @@ contract SExactGauge is LiquidityGauge, Configurable {
 	function initialize(address governor, address _minter, address _lp_token) public initializer {
 	    super.initialize(governor);
 	    
-	    minter     = _minter;
-	    lp_token  = _lp_token;
-	    
-	    Minter(minter).token();                         // just check
+	    minter      = _minter;
+	    crv_token   = Minter(_minter).token();
+	    lp_token    = _lp_token;
 	    IERC20(lp_token).totalSupply();                 // just check
 	}
     

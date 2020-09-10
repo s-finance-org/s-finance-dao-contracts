@@ -6,7 +6,7 @@ pragma solidity ^0.6.0;
 import "./SMinter.sol";
 
 
-contract TestGauge is SSimpleGauge {
+contract CurveGauge is SSimpleGauge {
 
 	function initialize(address governor, address _minter, address _lp_token, address _rewarded_token) public initializer {
 	    super.initialize(governor, _minter, _lp_token);
@@ -25,20 +25,20 @@ contract TestGauge is SSimpleGauge {
 }
 
 
-contract TestReward is ERC20 {
+contract RewardToken is ERC20 {
 
 	constructor() ERC20("Reward for Test", "Reward") public {
 		uint8 decimals = 0;
 		_setupDecimals(decimals);
 		
-		_mint(msg.sender,  10000 * 10 ** uint256(decimals));
+		_mint(msg.sender,  1000000 * 10 ** uint256(decimals));
 	}
 }
 
 
-contract TestLPToken is ERC20 {
+contract LPToken is ERC20 {
 
-	constructor() ERC20("Underlying for Test", "Underlying") public {
+	constructor() ERC20("LPToken for Test", "LPToken") public {
 		uint8 decimals = 0;
 		_setupDecimals(decimals);
 		
