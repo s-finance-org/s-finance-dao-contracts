@@ -490,8 +490,13 @@ contract SNestGauge is SExactGauge {
             if(sumRewardPerOf[msg.sender][rewards[i]] != sumRewardPer[rewards[i]])
                 sumRewardPerOf[msg.sender][rewards[i]] = sumRewardPer[rewards[i]];
             
-            if(amount > 0)
+            if(amount > 0) {
                 rewards[i].safeTransfer(to, amount);
+                if(rewards[i] == rewarded_token) {
+                    rewards_for[to] = rewards_for[to].add(amount);
+                    claimed_rewards_for[to] = claimed_rewards_for[to].add(amount);
+                }
+            }
         }
     }
 
