@@ -15,9 +15,9 @@ interface Minter {
     function minted(address, address) external view returns (uint);
     function allowed_to_mint_for(address, address) external view returns (bool);
     
-    function mint(address nestGauge_addr) external;
-    function mint_many(address[8] memory nestGauge_addrs) external;
-    function mint_for(address nestGauge_addr, address _for) external;
+    function mint(address gauge) external;
+    function mint_many(address[8] memory gauges) external;
+    function mint_for(address gauge, address _for) external;
     function toggle_approve_mint(address minting_user) external;
 }
 
@@ -408,7 +408,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
         }
     }
     
-    function _checkpoint(address addr, bool _claim_rewards) virtual public {
+    function _checkpoint(address addr, bool _claim_rewards) virtual internal {
         if(span == 0 || totalSupply == 0)
             return;
         
@@ -479,6 +479,7 @@ contract SNestGauge is SExactGauge {
             bals[i] = IERC20(rewards[i]).balanceOf(address(this));
             
         Minter(LiquidityGauge(reward_contract).minter()).mint(reward_contract);
+        LiquidityGauge(reward_contract).claim_rewards();
         
         for(uint i=0; i<bals.length; i++) {
             uint delta = IERC20(rewards[i]).balanceOf(address(this)).sub(bals[i]);
@@ -523,33 +524,33 @@ contract SMinter is Minter, Governable {
         token = token_;
     }
     
-    function setGaugeQuota(address nestGauge_addr, uint quota) public governance {
-       quotas[nestGauge_addr] = quota;
+    function setGaugeQuota(address gauge, uint quota) public governance {
+       quotas[gauge] = quota;
     }
     
-    function mint(address nestGauge_addr) virtual override public {
-        mint_for(nestGauge_addr, msg.sender);   
+    function mint(address gauge) virtual override public {
+        mint_for(gauge, msg.sender);   
     }
     
-    function mint_many(address[8] memory nestGauge_addrs) virtual override external {
-        for(uint i=0; i<nestGauge_addrs.length; i++)
-            mint(nestGauge_addrs[i]);
+    function mint_many(address[8] memory gauges) virtual override external {
+        for(uint i=0; i<gauges.length; i++)
+            mint(gauges[i]);
     }
     
-    function mint_for(address nestGauge_addr, address _for) virtual override public {
+    function mint_for(address gauge, address _for) virtual override public {
         require(_for == msg.sender || allowed_to_mint_for[msg.sender][_for], 'Not approved');
-        require(quotas[nestGauge_addr] > 0, 'No quota');
+        require(quotas[gauge] > 0, 'No quota');
 
-        LiquidityGauge(nestGauge_addr).user_checkpoint(_for);
-        uint total_mint = LiquidityGauge(nestGauge_addr).integrate_fraction(_for);
-        uint to_mint = total_mint.sub(minted[_for][nestGauge_addr]);
+        LiquidityGauge(gauge).user_checkpoint(_for);
+        uint total_mint = LiquidityGauge(gauge).integrate_fraction(_for);
+        uint to_mint = total_mint.sub(minted[_for][gauge]);
     
         if(to_mint != 0) {
-            quotas[nestGauge_addr] = quotas[nestGauge_addr].sub(to_mint);
+            quotas[gauge] = quotas[gauge].sub(to_mint);
             token.safeTransfer(_for, to_mint);
-            minted[_for][nestGauge_addr] = total_mint;
+            minted[_for][gauge] = total_mint;
     
-            emit Minted(_for, nestGauge_addr, total_mint);
+            emit Minted(_for, gauge, total_mint);
         }
     }
     
