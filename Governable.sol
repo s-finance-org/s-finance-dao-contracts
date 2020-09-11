@@ -45,6 +45,25 @@ contract Initializable {
     }
   }
 
+  /**
+   * @dev Modifier to use in the initializer function of a contract when upgrade EVEN times.
+   */
+  modifier initializerEven() {
+    require(initializing || isConstructor() || initialized, "Contract instance has already been initialized EVEN times");
+
+    bool isTopLevelCall = !initializing;
+    if (isTopLevelCall) {
+      initializing = true;
+      initialized = false;
+    }
+
+    _;
+
+    if (isTopLevelCall) {
+      initializing = false;
+    }
+  }
+
   /// @dev Returns true if and only if the function is running in the constructor
   function isConstructor() private view returns (bool) {
     // extcodesize checks the size of the code stored in an address, and
