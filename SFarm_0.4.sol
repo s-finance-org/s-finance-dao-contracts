@@ -5,6 +5,7 @@ pragma solidity ^0.6.0;
 
 import "./SToken.sol";
 import "./Governable.sol";
+import "./TransferHelper.sol";
 
 interface IFarm {
     function crop() external view returns (address);
@@ -434,7 +435,7 @@ contract SFarm is IFarm, Governable {
     
 }
 
-
+/*
 // helper methods for interacting with ERC20 tokens and sending ETH that do not consistently return true/false
 library TransferHelper {
     function safeApprove(address token, address to, uint value) internal {
@@ -460,4 +461,4 @@ library TransferHelper {
         require(success, 'TransferHelper: ETH_TRANSFER_FAILED');
     }
 }
-
+*/

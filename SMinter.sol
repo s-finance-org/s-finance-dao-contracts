@@ -6,6 +6,8 @@ pragma solidity ^0.6.0;
 import "./SToken.sol";
 import "./Governable.sol";
 
+import "./TransferHelper.sol";
+
 
 interface Minter {
     event Minted(address indexed recipient, address reward_contract, uint minted);
@@ -16,7 +18,7 @@ interface Minter {
     function allowed_to_mint_for(address, address) external view returns (bool);
     
     function mint(address gauge) external;
-    function mint_many(address[8] memory gauges) external;
+    function mint_many(address[8] calldata gauges) external;
     function mint_for(address gauge, address _for) external;
     function toggle_approve_mint(address minting_user) external;
 }
@@ -537,7 +539,7 @@ contract SMinter is Minter, Governable {
         mint_for(gauge, msg.sender);   
     }
     
-    function mint_many(address[8] memory gauges) virtual override external {
+    function mint_many(address[8] calldata gauges) virtual override external {
         for(uint i=0; i<gauges.length; i++)
             mint(gauges[i]);
     }
@@ -564,7 +566,7 @@ contract SMinter is Minter, Governable {
     }
 }
 
-
+/*
 // helper methods for interacting with ERC20 tokens and sending ETH that do not consistently return true/false
 library TransferHelper {
     function safeApprove(address token, address to, uint value) internal {
@@ -590,4 +592,4 @@ library TransferHelper {
         require(success, 'TransferHelper: ETH_TRANSFER_FAILED');
     }
 }
-
+*/
