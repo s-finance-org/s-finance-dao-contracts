@@ -2,7 +2,9 @@
 
 pragma solidity ^0.6.0;
 
+import "./TransferHelper.sol";
 
+/*
 // helper methods for interacting with ERC20 tokens and sending ETH that do not consistently return true/false
 library TransferHelper {
     function safeApprove(address token, address to, uint value) internal {
@@ -28,7 +30,7 @@ library TransferHelper {
         require(success, 'TransferHelper: ETH_TRANSFER_FAILED');
     }
 }
-
+*/
 interface IWETH {
     function deposit() external payable;
     //function transfer(address to, uint value) external returns (bool);
