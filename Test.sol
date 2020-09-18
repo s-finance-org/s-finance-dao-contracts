@@ -16,11 +16,11 @@ contract CurveGauge is SSimpleGauge {
 	}
     
     function claim_rewards(address addr) override public {
-        rewarded_token.safeTransfer(addr, 10);
+        rewarded_token.safeTransfer(addr, 10000);
     }
     function claimable_reward(address addr) override public view returns (uint) {
         addr;
-        return 10;
+        return 10000;
     }
 }
 
@@ -61,8 +61,9 @@ contract LPToken is ERC20 {
 struct S {
     address pcMinter;
     address pcsGauge;
-    address psMinter;
-    address pssGauge;
+    address pgMinter;
+    address pgsGauge;
+    //address pyMinter;
     
     address CRV;
     address SNX;
@@ -70,9 +71,9 @@ struct S {
     address LPT;
     
     address cMinter;
-    address sMinter;
+    address gMinter;
     address csGauge;
-    address ssGauge;
+    address gsGauge;
 }
     
 contract DeployMinter {
@@ -84,27 +85,29 @@ contract DeployMinter {
         
         s.pcMinter  = address(new InitializableAdminUpgradeabilityProxy());             
         s.pcsGauge  = address(new InitializableAdminUpgradeabilityProxy());             
-        s.psMinter  = address(new InitializableAdminUpgradeabilityProxy());             
-        s.pssGauge  = address(new InitializableAdminUpgradeabilityProxy());             
+        s.pgMinter  = address(new InitializableAdminUpgradeabilityProxy());             
+        s.pgsGauge  = address(new InitializableAdminUpgradeabilityProxy());             
+        //s.pyMinter  = address(new InitializableAdminUpgradeabilityProxy());             
         
         s.CRV       = address(new CurveToken(  s.pcMinter ));                           
         s.SNX       = address(new RewardToken( s.pcsGauge ));                           
-        s.SFG       = address(new SfgToken(    s.psMinter ));                           
+        s.SFG       = address(new SfgToken(    s.pgMinter ));                           
         s.LPT       = address(new LPToken(     admin      ));                           
 
         s.cMinter   = address(new SMinter());                                           
-        s.sMinter   = address(new SMinter());                                           
+        s.gMinter   = address(new SMinter());                                           
 
         emit Deploy('pcMinter', s.pcMinter);
         emit Deploy('pcsGauge', s.pcsGauge);
-        emit Deploy('psMinter', s.psMinter);
-        emit Deploy('pssGauge', s.pssGauge);
+        emit Deploy('pgMinter', s.pgMinter);
+        emit Deploy('pgsGauge', s.pgsGauge);
+        //emit Deploy('pyMinter', s.pyMinter);
         emit Deploy('CRV', s.CRV);
         emit Deploy('SNX', s.SNX);
         emit Deploy('SFG', s.SFG);
         emit Deploy('LPT', s.LPT);
         emit Deploy('cMinter', s.cMinter);
-        emit Deploy('sMinter', s.sMinter);
+        emit Deploy('gMinter', s.gMinter);
         
         selfdestruct(msg.sender);
     }
@@ -116,23 +119,28 @@ contract DeployGauge {
     //constructor(address adminProxy, address admin, S memory s) public {
     function deploy(address adminProxy, address admin, S memory s) public {
         s.csGauge   = address(new CurveGauge());                                        emit Deploy('csGauge', s.csGauge);
-        s.ssGauge   = address(new SNestGauge());                                        emit Deploy('ssGauge', s.ssGauge);
+        s.gsGauge   = address(new SNestGauge());                                        emit Deploy('gsGauge', s.gsGauge);
         
         IProxy(s.pcMinter).initialize(adminProxy, s.cMinter, abi.encodeWithSignature('initialize(address,address)', address(this), s.CRV));
         IProxy(s.pcsGauge).initialize(adminProxy, s.csGauge, abi.encodeWithSignature('initialize(address,address,address,address)', address(this), s.pcMinter, s.LPT, s.SNX));
-        IProxy(s.psMinter).initialize(adminProxy, s.sMinter, abi.encodeWithSignature('initialize(address,address)', address(this), s.SFG));
-        IProxy(s.pssGauge).initialize(adminProxy, s.ssGauge, abi.encodeWithSignature('initialize(address,address,address,address,address[])', address(this), s.psMinter, s.LPT, s.pcsGauge, new address[](0)));
+        IProxy(s.pgMinter).initialize(adminProxy, s.gMinter, abi.encodeWithSignature('initialize(address,address)', address(this), s.SFG));
+        IProxy(s.pgsGauge).initialize(adminProxy, s.gsGauge, abi.encodeWithSignature('initialize(address,address,address,address,address[])', address(this), s.pgMinter, s.LPT, s.pcsGauge, new address[](0)));
         
         SMinter(s.pcMinter).setGaugeQuota(s.pcsGauge, IERC20(s.CRV).totalSupply());
         CurveGauge(s.pcsGauge).setSpan(IERC20(s.CRV).totalSupply(), true);
         
-        SMinter(s.psMinter).setGaugeQuota(s.pssGauge, IERC20(s.SFG).totalSupply());
-        SNestGauge(s.pssGauge).setSpan(IERC20(s.SFG).totalSupply() / 1 ether, false);
+        SMinter(s.pgMinter).setGaugeQuota(s.pgsGauge, IERC20(s.SFG).totalSupply());
+        SNestGauge(s.pgsGauge).setSpan(IERC20(s.SFG).totalSupply() / 1 ether, false);
         
+        SNestGauge(s.pgsGauge).setConfig('devAddr', uint(msg.sender));
+        SNestGauge(s.pgsGauge).setConfig('devRatio', 0.05 ether);
+        SNestGauge(s.pgsGauge).setConfig('ecoAddr', uint(0x445DfB4d52b7BCA4557Dd6df8ca8D2D2a7a832d6));
+        SNestGauge(s.pgsGauge).setConfig('ecoAddr', 0.05 ether);
+
         Governable(s.pcMinter).transferGovernorship(admin);
         Governable(s.pcsGauge).transferGovernorship(admin);
-        Governable(s.psMinter).transferGovernorship(admin);
-        Governable(s.pssGauge).transferGovernorship(admin);
+        Governable(s.pgMinter).transferGovernorship(admin);
+        Governable(s.pgsGauge).transferGovernorship(admin);
 
         selfdestruct(msg.sender);
     }

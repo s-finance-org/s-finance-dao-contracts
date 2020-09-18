@@ -163,7 +163,7 @@ contract Configurable is Governable {
     function setConfig(bytes32 key, uint index, uint value) external governance {
         _setConfig(bytes32(uint(key) ^ index), value);
     }
-    function setConfig(bytes32 key, address addr, uint value) public governance {
+    function setConfig(bytes32 key, address addr, uint value) external governance {
         _setConfig(bytes32(uint(key) ^ uint(addr)), value);
     }
 }

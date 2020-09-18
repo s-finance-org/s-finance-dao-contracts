@@ -243,7 +243,12 @@ contract SSimpleGauge is LiquidityGauge, Configurable {
 contract SExactGauge is LiquidityGauge, Configurable {
     using SafeMath for uint;
     using TransferHelper for address;
-
+    
+    bytes32 internal constant _devAddr_         = 'devAddr';
+    bytes32 internal constant _devRatio_        = 'devRatio';
+    bytes32 internal constant _ecoAddr_         = 'ecoAddr';
+    bytes32 internal constant _ecoRatio_        = 'ecoRatio';
+    
     address override public minter;
     address override public crv_token;
     address override public lp_token;
@@ -285,7 +290,6 @@ contract SExactGauge is LiquidityGauge, Configurable {
     mapping(address => uint) override public reward_integral_for;
     mapping(address => uint) override public rewards_for;
     mapping(address => uint) override public claimed_rewards_for;
-    
 
 	uint public span;
 	uint public end;
@@ -401,10 +405,15 @@ contract SExactGauge is LiquidityGauge, Configurable {
         if(amount > 0) {
             integrate_fraction[addr] = integrate_fraction[addr].add(amount);
             
-            address teamAddr = address(config['teamAddr']);
-            uint teamRatio = config['teamRatio'];
-            if(teamAddr != address(0) && teamRatio != 0)
-                integrate_fraction[teamAddr] = integrate_fraction[teamAddr].add(amount.mul(teamRatio).div(1 ether));
+            addr = address(config[_devAddr_]);
+            uint ratio = config[_devRatio_];
+            if(addr != address(0) && ratio != 0)
+                integrate_fraction[addr] = integrate_fraction[addr].add(amount.mul(ratio).div(1 ether));
+
+            addr = address(config[_ecoAddr_]);
+            ratio = config[_ecoRatio_];
+            if(addr != address(0) && ratio != 0)
+                integrate_fraction[addr] = integrate_fraction[addr].add(amount.mul(ratio).div(1 ether));
         }
     }
     
@@ -514,9 +523,14 @@ contract SNestGauge is SExactGauge {
 }
 
 
-contract SMinter is Minter, Governable {
+contract SMinter is Minter, Configurable {
     using SafeMath for uint;
+    using Address for address payable;
     using TransferHelper for address;
+    
+	bytes32 internal constant _allowContract_   = 'allowContract';
+	bytes32 internal constant _allowlist_       = 'allowlist';
+	bytes32 internal constant _blocklist_       = 'blocklist';
 
     address override public token;
     address override public controller;
@@ -545,6 +559,10 @@ contract SMinter is Minter, Governable {
     function mint_for(address gauge, address _for) virtual override public {
         require(_for == msg.sender || allowed_to_mint_for[msg.sender][_for], 'Not approved');
         require(quotas[gauge] > 0, 'No quota');
+        
+        require(getConfig(_blocklist_, msg.sender) == 0, 'In blocklist');
+        bool isContract = msg.sender.isContract();
+        require(!isContract || config[_allowContract_] != 0 || getConfig(_allowlist_, msg.sender) != 0, 'No allowContract');
 
         LiquidityGauge(gauge).user_checkpoint(_for);
         uint total_mint = LiquidityGauge(gauge).integrate_fraction(_for);
