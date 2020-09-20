@@ -290,8 +290,8 @@ contract SExactGauge is LiquidityGauge, Configurable {
     
     uint override public reward_integral;
     mapping(address => uint) override public reward_integral_for;
-    mapping(address => uint) override public rewards_for;
-    mapping(address => uint) override public claimed_rewards_for;
+    mapping(address => uint) internal rewards_for_;            // obsolete
+    mapping(address => uint) internal claimed_rewards_for_;    // obsoleted
 
 	uint public span;
 	uint public end;
@@ -446,6 +446,14 @@ contract SExactGauge is LiquidityGauge, Configurable {
     function integrate_checkpoint() override external view returns (uint) {
         return lasttime;
     }
+    
+    function rewards_for(address) virtual override external view returns (uint) {
+        return 0;
+    }
+    
+    function claimed_rewards_for(address) virtual override external view returns (uint) {
+        return 0;
+    }
 } 
 
 
@@ -501,18 +509,14 @@ contract SNestGauge is SExactGauge {
             if(sumRewardPerOf[msg.sender][rewards[i]] != sumRewardPer[rewards[i]])
                 sumRewardPerOf[msg.sender][rewards[i]] = sumRewardPer[rewards[i]];
             
-            if(amount > 0) {
+            if(amount > 0)
                 rewards[i].safeTransfer(to, amount);
-                if(rewards[i] == rewarded_token) {
-                    rewards_for[to] = rewards_for[to].add(amount);
-                    claimed_rewards_for[to] = claimed_rewards_for[to].add(amount);
-                }
-            }
         }
     }
 
     function claimable_reward(address addr) virtual override public view returns (uint) {
-        uint delta = LiquidityGauge(reward_contract).claimable_tokens(address(this));
+        //uint delta = LiquidityGauge(reward_contract).claimable_tokens(address(this));     // Error: Mutable call in static context
+        uint delta = LiquidityGauge(reward_contract).integrate_fraction(address(this)).sub(Minter(LiquidityGauge(reward_contract).minter()).minted(address(this), reward_contract));
         return _claimable_tokens(addr, delta, sumRewardPer[rewarded_token], sumRewardPerOf[addr][rewarded_token]);
     }
     
@@ -522,6 +526,29 @@ contract SNestGauge is SExactGauge {
         return _claimable_tokens(addr, delta, sumRewardPer[reward2], sumRewardPerOf[addr][reward2]);
     }    
 
+    function claimable_reward(address addr, address reward) virtual public view returns (uint) {
+        return _claimable_tokens(addr, 0, sumRewardPer[reward], sumRewardPerOf[addr][reward]);
+    }
+    
+    function claimed_rewards_for(address addr, address reward) virtual public view returns (uint) {
+        return _claimable_tokens(addr, 0, sumRewardPerOf[addr][reward], 0);
+    }
+    function claimed_rewards_for(address addr) virtual override public view returns (uint) {
+        return claimed_rewards_for(addr, rewarded_token);
+    }
+    function claimed_rewards_for2(address addr) virtual public view returns (uint) {
+        return claimed_rewards_for(addr, LiquidityGauge(reward_contract).rewarded_token());
+    }
+    
+    function rewards_for(address addr, address reward) virtual public view returns (uint) {
+        return _claimable_tokens(addr, 0, sumRewardPer[reward], 0);
+    }
+    function rewards_for(address addr) virtual override public view returns (uint) {
+        return rewards_for(addr, rewarded_token);
+    }
+    function rewards_for2(address addr) virtual public view returns (uint) {
+        return rewards_for(addr, LiquidityGauge(reward_contract).rewarded_token());
+    }
 }
 
 
