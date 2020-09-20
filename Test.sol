@@ -160,6 +160,31 @@ contract DeployGauge {
     }
 }
 
+contract DeployPool2 {
+    event Deploy(bytes32 name, address addr);
+    
+    constructor(address adminProxy, address admin, address pgMinter, address LPT) public {
+        address proxy  = address(new InitializableAdminUpgradeabilityProxy());             
+        address gauge = address(new SExactGauge());
+
+        IProxy(proxy).initialize(adminProxy, gauge, abi.encodeWithSignature('initialize(address,address,address)', address(this), pgMinter, LPT));
+        
+        SExactGauge(proxy).setSpan(5000 days, false);
+
+        SExactGauge(proxy).setConfig('devAddr', uint(admin));
+        SExactGauge(proxy).setConfig('devRatio', 0.05 ether);
+        SExactGauge(proxy).setConfig('ecoAddr', uint(0x3F55534FCe61474AF125c19C752448dc225f081f));
+        SExactGauge(proxy).setConfig('ecoAddr', 0.05 ether);
+
+        Governable(proxy).transferGovernorship(admin);
+
+        emit Deploy('proxy', proxy);
+        emit Deploy('gauge', gauge);
+    
+        selfdestruct(msg.sender);
+    }
+}
+
 interface IProxy {
     function initialize(address _admin, address _logic, bytes memory _data) external payable;
 }
