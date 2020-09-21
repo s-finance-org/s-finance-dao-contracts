@@ -288,10 +288,10 @@ contract SExactGauge is LiquidityGauge, Configurable {
     address override public reward_contract;
     address override public rewarded_token;
     
-    uint override public reward_integral;
-    mapping(address => uint) override public reward_integral_for;
-    mapping(address => uint) internal rewards_for_;            // obsolete
-    mapping(address => uint) internal claimed_rewards_for_;    // obsoleted
+    mapping(address => uint) public reward_integral_;                             // rewarded_token => reward_integral
+    mapping(address => mapping(address => uint)) public reward_integral_for_;     // recipient => rewarded_token => reward_integral_for
+    mapping(address => mapping(address => uint)) public rewards_for_; 
+    mapping(address => mapping(address => uint)) public claimed_rewards_for_; 
 
 	uint public span;
 	uint public end;
@@ -447,20 +447,28 @@ contract SExactGauge is LiquidityGauge, Configurable {
         return lasttime;
     }
     
-    function rewards_for(address) virtual override external view returns (uint) {
-        return 0;
+    function reward_integral() virtual override external view returns (uint) {
+        return reward_integral_[rewarded_token];
     }
     
-    function claimed_rewards_for(address) virtual override external view returns (uint) {
-        return 0;
+    function reward_integral_for(address addr) virtual override external view returns (uint) {
+        return reward_integral_for_[addr][rewarded_token];
+    }
+    
+    function rewards_for(address addr) virtual override external view returns (uint) {
+        return rewards_for_[addr][rewarded_token];
+    }
+    
+    function claimed_rewards_for(address addr) virtual override external view returns (uint) {
+        return claimed_rewards_for_[addr][rewarded_token];
     }
 } 
 
 
 contract SNestGauge is SExactGauge {
 	address[] public rewards;
-	mapping(address => mapping(address =>uint)) public sumRewardPerOf;      // recipient => rewarded_token => can sumRewardPerOf
-	mapping(address => uint) public sumRewardPer;                           // rewarded_token => can sumRewardPerOf
+	//mapping(address => mapping(address =>uint)) internal sumRewardPerOf_;      // recipient => rewarded_token => can sumRewardPerOf            // obsolete, instead of reward_integral_
+	//mapping(address => uint) internal sumRewardPer_;                           // rewarded_token => can sumRewardPerOf                         // obsolete, instead of reward_integral_for_
 
 	function initialize(address governor, address _minter, address _lp_token, address _nestGauge, address[] memory _moreRewards) public initializer {
 	    super.initialize(governor, _minter, _lp_token);
@@ -493,62 +501,70 @@ contract SNestGauge is SExactGauge {
         if(span == 0 || totalSupply == 0)
             return;
         
-        uint[] memory bals = new uint[](rewards.length);
-        for(uint i=0; i<bals.length; i++)
-            bals[i] = IERC20(rewards[i]).balanceOf(address(this));
-            
-        Minter(LiquidityGauge(reward_contract).minter()).mint(reward_contract);
-        LiquidityGauge(reward_contract).claim_rewards();
+        _checkpoint_rewards(to, true);
         
-        for(uint i=0; i<bals.length; i++) {
-            uint delta = IERC20(rewards[i]).balanceOf(address(this)).sub(bals[i]);
-            uint amount = _claimable_tokens(msg.sender, delta, sumRewardPer[rewards[i]], sumRewardPerOf[msg.sender][rewards[i]]);
-        
-            if(delta > 0)
-                sumRewardPer[rewards[i]] = sumRewardPer[rewards[i]].add(delta.mul(1 ether).div(totalSupply));
-            if(sumRewardPerOf[msg.sender][rewards[i]] != sumRewardPer[rewards[i]])
-                sumRewardPerOf[msg.sender][rewards[i]] = sumRewardPer[rewards[i]];
-            
-            if(amount > 0)
+        for(uint i=0; i<rewards.length; i++) {
+            uint amount = rewards_for_[to][rewards[i]].sub(claimed_rewards_for_[to][rewards[i]]);
+            if(amount > 0) {
                 rewards[i].safeTransfer(to, amount);
+                claimed_rewards_for_[to][rewards[i]] = rewards_for_[to][rewards[i]];
+            }
+        }
+    }
+
+    function _checkpoint_rewards(address addr, bool _claim_rewards) virtual override internal {
+        if(span == 0 || totalSupply == 0)
+            return;
+        
+        uint[] memory drs = new uint[](rewards.length);
+        
+        if(_claim_rewards) {
+            for(uint i=0; i<drs.length; i++)
+                drs[i] = IERC20(rewards[i]).balanceOf(address(this));
+                
+            Minter(LiquidityGauge(reward_contract).minter()).mint(reward_contract);
+            LiquidityGauge(reward_contract).claim_rewards();
+            
+            for(uint i=0; i<drs.length; i++)
+                drs[i] = IERC20(rewards[i]).balanceOf(address(this)).sub(drs[i]);
+        }
+
+        for(uint i=0; i<drs.length; i++) {
+            uint amount = _claimable_tokens(addr, drs[i], reward_integral_[rewards[i]], reward_integral_for_[msg.sender][rewards[i]]);
+            if(amount > 0)
+                rewards_for_[addr][rewards[i]] = rewards_for_[addr][rewards[i]].add(amount);
+            
+            if(drs[i] > 0)
+                reward_integral_[rewards[i]] = reward_integral_[rewards[i]].add(drs[i].mul(1 ether).div(totalSupply));
+            if(reward_integral_for_[addr][rewards[i]] != reward_integral_[rewards[i]])
+                reward_integral_for_[addr][rewards[i]] = reward_integral_[rewards[i]];
         }
     }
 
     function claimable_reward(address addr) virtual override public view returns (uint) {
         //uint delta = LiquidityGauge(reward_contract).claimable_tokens(address(this));     // Error: Mutable call in static context
         uint delta = LiquidityGauge(reward_contract).integrate_fraction(address(this)).sub(Minter(LiquidityGauge(reward_contract).minter()).minted(address(this), reward_contract));
-        return _claimable_tokens(addr, delta, sumRewardPer[rewarded_token], sumRewardPerOf[addr][rewarded_token]);
+        return _claimable_tokens(addr, delta, reward_integral_[rewarded_token], reward_integral_for_[addr][rewarded_token]);
     }
     
     function claimable_reward2(address addr) virtual public view returns (uint) {
         uint delta = LiquidityGauge(reward_contract).claimable_reward(address(this));
         address reward2 = LiquidityGauge(reward_contract).rewarded_token();
-        return _claimable_tokens(addr, delta, sumRewardPer[reward2], sumRewardPerOf[addr][reward2]);
+        return _claimable_tokens(addr, delta, reward_integral_[reward2], reward_integral_for_[addr][reward2]);
     }    
 
     function claimable_reward(address addr, address reward) virtual public view returns (uint) {
-        return _claimable_tokens(addr, 0, sumRewardPer[reward], sumRewardPerOf[addr][reward]);
+        return _claimable_tokens(addr, 0, reward_integral_[reward], reward_integral_for_[addr][reward]);
     }
     
-    function claimed_rewards_for(address addr, address reward) virtual public view returns (uint) {
-        return _claimable_tokens(addr, 0, sumRewardPerOf[addr][reward], 0);
-    }
-    function claimed_rewards_for(address addr) virtual override public view returns (uint) {
-        return claimed_rewards_for(addr, rewarded_token);
-    }
     function claimed_rewards_for2(address addr) virtual public view returns (uint) {
-        return claimed_rewards_for(addr, LiquidityGauge(reward_contract).rewarded_token());
+        return claimed_rewards_for_[addr][LiquidityGauge(reward_contract).rewarded_token()];
     }
     
-    function rewards_for(address addr, address reward) virtual public view returns (uint) {
-        return _claimable_tokens(addr, 0, sumRewardPer[reward], 0);
-    }
-    function rewards_for(address addr) virtual override public view returns (uint) {
-        return rewards_for(addr, rewarded_token);
-    }
     function rewards_for2(address addr) virtual public view returns (uint) {
-        return rewards_for(addr, LiquidityGauge(reward_contract).rewarded_token());
+        return rewards_for_[addr][LiquidityGauge(reward_contract).rewarded_token()];
     }
+    
 }
 
 
