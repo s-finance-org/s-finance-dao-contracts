@@ -250,6 +250,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
     bytes32 internal constant _devRatio_        = 'devRatio';
     bytes32 internal constant _ecoAddr_         = 'ecoAddr';
     bytes32 internal constant _ecoRatio_        = 'ecoRatio';
+    bytes32 internal constant _claim_rewards_   = 'claim_rewards';
     
     address override public minter;
     address override public crv_token;
@@ -332,7 +333,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
     function deposit(uint amount, address addr) virtual override public {
         require(addr == msg.sender || approved_to_deposit[msg.sender][addr], 'Not approved');
 
-        _checkpoint(addr, true);
+        _checkpoint(addr, config[_claim_rewards_] == 0 ? false : true);
         
         _deposit(addr, amount);
 
@@ -346,10 +347,10 @@ contract SExactGauge is LiquidityGauge, Configurable {
     }
     
     function withdraw() virtual external {
-        withdraw(balanceOf[msg.sender], true);
+        withdraw(balanceOf[msg.sender]);
     }
-    function withdraw(uint amount) virtual override external {
-        withdraw(amount, true);
+    function withdraw(uint amount) virtual override public {
+        withdraw(amount, config[_claim_rewards_] == 0 ? false : true);
     }
     function withdraw(uint amount, bool _claim_rewards) virtual override public {
         _checkpoint(msg.sender, _claim_rewards);
@@ -439,7 +440,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
     }
 
     function user_checkpoint(address addr) virtual override external returns (bool) {
-        _checkpoint(addr, true);
+        _checkpoint(addr, config[_claim_rewards_] == 0 ? false : true);
         return true;
     }
 
