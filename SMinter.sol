@@ -538,7 +538,7 @@ contract SNestGauge is SExactGauge {
         }
 
         for(uint i=0; i<drs.length; i++) {
-            uint amount = _claimable_last(addr, drs[i], reward_integral_[rewards[i]], reward_integral_for_[msg.sender][rewards[i]]);
+            uint amount = _claimable_last(addr, drs[i], reward_integral_[rewards[i]], reward_integral_for_[addr][rewards[i]]);
             if(amount > 0)
                 rewards_for_[addr][rewards[i]] = rewards_for_[addr][rewards[i]].add(amount);
             
