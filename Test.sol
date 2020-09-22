@@ -59,6 +59,9 @@ contract LPToken is ERC20 {
 
 
 struct S {
+    address adminProxy;
+    address admin;
+    
     address pcMinter;
     address pcsGauge;
     address pgMinter;
@@ -181,6 +184,43 @@ contract DeployPool2 {
         emit Deploy('proxy', proxy);
         emit Deploy('gauge', gauge);
     
+        selfdestruct(msg.sender);
+    }
+}
+
+contract DeployHelper {
+    constructor() public {
+        S memory s;
+        
+        s.adminProxy= 0x3F55534FCe61474AF125c19C752448dc225f081f;       // 15
+        s.admin     = 0x71e3216f355113d2DA7f27C9c5B0F83c816fb04B;       // 16
+        
+        s.pgMinter  = 0xb79305D5b2d438D24789A4629d5d555c72A493FD;
+        s.pgsGauge  = 0x65728c1D0e545DB117940d5745089c256516ad43;
+        s.SFG       = 0x9F843d9BA2A386BDA2845507450Fd47934fb3D03;
+        s.gMinter   = 0xF93F7c78026E354807030C657F87b2380DdA43db;
+        s.gsGauge   = 0xe054Bc481Cb5FE5Ec75048fBC95fE45267eB92A7;
+        
+        s.pcMinter  = 0xd061D61a4d941c39E5453435B6345Dc261C2fcE0;
+        s.pcsGauge  = 0xA90996896660DEcC6E997655E065b23788857849;
+        s.CRV       = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+        s.SNX       = 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
+        s.LPT       = 0xC25a3A3b969415c80451098fa907EC722572917F;
+
+        IProxy(s.pgMinter).initialize(s.adminProxy, s.gMinter, abi.encodeWithSignature('initialize(address,address)', address(this), s.SFG));
+        IProxy(s.pgsGauge).initialize(s.adminProxy, s.gsGauge, abi.encodeWithSignature('initialize(address,address,address,address,address[])', address(this), s.pgMinter, s.LPT, s.pcsGauge, new address[](0)));
+
+        SMinter(s.pgMinter).setGaugeQuota(s.pgsGauge, IERC20(s.SFG).totalSupply());
+        //SNestGauge(s.pgsGauge).setSpan(5000 days, false);
+        
+        SNestGauge(s.pgsGauge).setConfig('devAddr', uint(0x0Cc674efa6a477fa52b31eFA10633A9428Afb022));
+        SNestGauge(s.pgsGauge).setConfig('devRatio', 0.05 ether);
+        SNestGauge(s.pgsGauge).setConfig('ecoAddr', uint(0x46287423a6939c1393e1078eE4A5656f733f80F2));
+        SNestGauge(s.pgsGauge).setConfig('ecoAddr', 0.05 ether);
+
+        Governable(s.pgMinter).transferGovernorship(s.admin);
+        Governable(s.pgsGauge).transferGovernorship(s.admin);
+
         selfdestruct(msg.sender);
     }
 }
