@@ -316,7 +316,9 @@ contract SExactGauge is LiquidityGauge, Configurable {
             end = now + _span;
         else
             end = 0;
-        lasttime = now;
+            
+        if(lasttime == 0)
+            lasttime = now;
     }
     
     function kick(address addr) virtual override external {
@@ -381,10 +383,12 @@ contract SExactGauge is LiquidityGauge, Configurable {
         return;
     }
     
-    function claimable_tokens(address addr) virtual override public view returns (uint) {
-        return _claimable_tokens(addr, claimableDelta(), sumMiningPer, sumMiningPerOf[addr]);
+    function claimable_tokens(address addr) virtual override public view returns (uint r) {
+        r = integrate_fraction[addr].sub(Minter(minter).minted(addr, address(this)));
+        r = r.add(_claimable_last(addr, claimableDelta(), sumMiningPer, sumMiningPerOf[addr]));
     }
-    function _claimable_tokens(address addr, uint delta, uint sumPer, uint lastSumPer) virtual internal view returns (uint amount) {
+    
+    function _claimable_last(address addr, uint delta, uint sumPer, uint lastSumPer) virtual internal view returns (uint amount) {
         if(span == 0 || totalSupply == 0)
             return 0;
         
@@ -393,6 +397,9 @@ contract SExactGauge is LiquidityGauge, Configurable {
         amount = amount.mul(balanceOf[addr]).div(1 ether);
     }
     function claimableDelta() virtual internal view returns(uint amount) {
+        if(span == 0 || totalSupply == 0)
+            return 0;
+        
         amount = SMinter(minter).quotas(address(this)).sub(bufReward);
 
         if(end == 0) {                                                         // isNonLinear, endless
@@ -425,7 +432,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
             return;
         
         uint delta = claimableDelta();
-        uint amount = _claimable_tokens(addr, delta, sumMiningPer, sumMiningPerOf[addr]);
+        uint amount = _claimable_last(addr, delta, sumMiningPer, sumMiningPerOf[addr]);
         
         if(delta != amount)
             bufReward = bufReward.add(delta).sub(amount);
@@ -531,7 +538,7 @@ contract SNestGauge is SExactGauge {
         }
 
         for(uint i=0; i<drs.length; i++) {
-            uint amount = _claimable_tokens(addr, drs[i], reward_integral_[rewards[i]], reward_integral_for_[msg.sender][rewards[i]]);
+            uint amount = _claimable_last(addr, drs[i], reward_integral_[rewards[i]], reward_integral_for_[msg.sender][rewards[i]]);
             if(amount > 0)
                 rewards_for_[addr][rewards[i]] = rewards_for_[addr][rewards[i]].add(amount);
             
@@ -542,20 +549,23 @@ contract SNestGauge is SExactGauge {
         }
     }
 
-    function claimable_reward(address addr) virtual override public view returns (uint) {
+    function claimable_reward(address addr) virtual override public view returns (uint r) {
         //uint delta = LiquidityGauge(reward_contract).claimable_tokens(address(this));     // Error: Mutable call in static context
         uint delta = LiquidityGauge(reward_contract).integrate_fraction(address(this)).sub(Minter(LiquidityGauge(reward_contract).minter()).minted(address(this), reward_contract));
-        return _claimable_tokens(addr, delta, reward_integral_[rewarded_token], reward_integral_for_[addr][rewarded_token]);
+        r = _claimable_last(addr, delta, reward_integral_[rewarded_token], reward_integral_for_[addr][rewarded_token]);
+        r = r.add(rewards_for_[addr][rewarded_token].sub(claimed_rewards_for_[addr][rewarded_token]));
     }
     
-    function claimable_reward2(address addr) virtual public view returns (uint) {
+    function claimable_reward2(address addr) virtual public view returns (uint r) {
         uint delta = LiquidityGauge(reward_contract).claimable_reward(address(this));
         address reward2 = LiquidityGauge(reward_contract).rewarded_token();
-        return _claimable_tokens(addr, delta, reward_integral_[reward2], reward_integral_for_[addr][reward2]);
+        r = _claimable_last(addr, delta, reward_integral_[reward2], reward_integral_for_[addr][reward2]);
+        r = r.add(rewards_for_[addr][reward2].sub(claimed_rewards_for_[addr][reward2]));
     }    
 
-    function claimable_reward(address addr, address reward) virtual public view returns (uint) {
-        return _claimable_tokens(addr, 0, reward_integral_[reward], reward_integral_for_[addr][reward]);
+    function claimable_reward(address addr, address reward) virtual public view returns (uint r) {
+        r = _claimable_last(addr, 0, reward_integral_[reward], reward_integral_for_[addr][reward]);
+        r = r.add(rewards_for_[addr][reward].sub(claimed_rewards_for_[addr][reward]));
     }
     
     function claimed_rewards_for2(address addr) virtual public view returns (uint) {
@@ -598,6 +608,11 @@ contract SMinter is Minter, Configurable {
     }
     
     function mint_many(address[8] calldata gauges) virtual override external {
+        for(uint i=0; i<gauges.length; i++)
+            mint(gauges[i]);
+    }
+    
+    function mint_many(address[] calldata gauges) virtual external {
         for(uint i=0; i<gauges.length; i++)
             mint(gauges[i]);
     }
