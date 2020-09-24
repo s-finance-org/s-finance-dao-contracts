@@ -152,7 +152,7 @@ contract DeployGauge {
         SNestGauge(s.pgsGauge).setConfig('devAddr', uint(msg.sender));
         SNestGauge(s.pgsGauge).setConfig('devRatio', 0.05 ether);
         SNestGauge(s.pgsGauge).setConfig('ecoAddr', uint(0x445DfB4d52b7BCA4557Dd6df8ca8D2D2a7a832d6));
-        SNestGauge(s.pgsGauge).setConfig('ecoAddr', 0.05 ether);
+        SNestGauge(s.pgsGauge).setConfig('ecoRatio', 0.05 ether);
 
         //Governable(s.pcMinter).transferGovernorship(admin);
         //Governable(s.pcsGauge).transferGovernorship(admin);
@@ -177,7 +177,7 @@ contract DeployPool2 {
         SExactGauge(proxy).setConfig('devAddr', uint(admin));
         SExactGauge(proxy).setConfig('devRatio', 0.05 ether);
         SExactGauge(proxy).setConfig('ecoAddr', uint(0x3F55534FCe61474AF125c19C752448dc225f081f));
-        SExactGauge(proxy).setConfig('ecoAddr', 0.05 ether);
+        SExactGauge(proxy).setConfig('ecoRatio', 0.05 ether);
 
         Governable(proxy).transferGovernorship(admin);
 
@@ -195,11 +195,11 @@ contract DeployHelper {
         s.adminProxy= 0x3F55534FCe61474AF125c19C752448dc225f081f;       // 15
         s.admin     = 0x71e3216f355113d2DA7f27C9c5B0F83c816fb04B;       // 16
         
-        s.pgMinter  = 0xb79305D5b2d438D24789A4629d5d555c72A493FD;
-        s.pgsGauge  = 0x65728c1D0e545DB117940d5745089c256516ad43;
-        s.SFG       = 0x9F843d9BA2A386BDA2845507450Fd47934fb3D03;
-        s.gMinter   = 0xF93F7c78026E354807030C657F87b2380DdA43db;
-        s.gsGauge   = 0xe054Bc481Cb5FE5Ec75048fBC95fE45267eB92A7;
+        s.pgMinter  = 0x3b46D3C8Aea72575C2C17f5604A0916e5A994A3b;
+        s.pgsGauge  = 0xA8EeDB4201bC2951dc8946C0A139ffd0b5E8CBfB;
+        s.SFG       = 0x8a6ACA71A218301c7081d4e96D64292D3B275ce0;
+        s.gMinter   = 0x4ebBcE881f5f233c4bF68328E9bB98BeE4985680;
+        s.gsGauge   = 0x41517D4102Cc6ddB4f6daCf19284E6CA54aad0AB;
         
         s.pcMinter  = 0xd061D61a4d941c39E5453435B6345Dc261C2fcE0;
         s.pcsGauge  = 0xA90996896660DEcC6E997655E065b23788857849;
@@ -216,7 +216,7 @@ contract DeployHelper {
         SNestGauge(s.pgsGauge).setConfig('devAddr', uint(0x0Cc674efa6a477fa52b31eFA10633A9428Afb022));
         SNestGauge(s.pgsGauge).setConfig('devRatio', 0.05 ether);
         SNestGauge(s.pgsGauge).setConfig('ecoAddr', uint(0x46287423a6939c1393e1078eE4A5656f733f80F2));
-        SNestGauge(s.pgsGauge).setConfig('ecoAddr', 0.05 ether);
+        SNestGauge(s.pgsGauge).setConfig('ecoRatio', 0.05 ether);
 
         Governable(s.pgMinter).transferGovernorship(s.admin);
         Governable(s.pgsGauge).transferGovernorship(s.admin);
