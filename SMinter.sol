@@ -557,7 +557,7 @@ contract SNestGauge is SExactGauge {
     }
     
     function claimable_reward2(address addr) virtual public view returns (uint r) {
-        uint delta = LiquidityGauge(reward_contract).claimable_reward(address(this));
+        uint delta = LiquidityGauge(reward_contract).claimable_reward(address(this)).sub(LiquidityGauge(reward_contract).claimed_rewards_for(address(this)));
         address reward2 = LiquidityGauge(reward_contract).rewarded_token();
         r = _claimable_last(addr, delta, reward_integral_[reward2], reward_integral_for_[addr][reward2]);
         r = r.add(rewards_for_[addr][reward2].sub(claimed_rewards_for_[addr][reward2]));
