@@ -6,20 +6,19 @@ pragma solidity ^0.6.0;
 import "./SMinter.sol";
 
 interface RewardPool {
-    function df() external returns (address);
     function stake(uint) external;
     function withdraw(uint) external;
     function getReward() external;
     function earned(address) external view returns (uint);
 }
 
-contract DForceGauge is SExactGauge {
+contract DoubleGauge is SExactGauge {
 
-	function initialize(address governor, address _minter, address _lp_token, address rewardPool) public initializer {
+	function initialize(address governor, address _minter, address _lp_token, address _reward_contract, address _rewarded_token) public initializer {
 	    super.initialize(governor, _minter, _lp_token);
 	    
-	    reward_contract = rewardPool;
-	    rewarded_token  = RewardPool(rewardPool).df();
+	    reward_contract = _reward_contract;
+	    rewarded_token  = _rewarded_token;
 	}
     
     function _deposit(address from, uint amount) virtual override internal {
