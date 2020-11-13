@@ -68,6 +68,45 @@ interface LiquidityGauge {
     function claimed_rewards_for(address)   external view returns (uint);
 }
 
+interface IStakingRewards {
+    // Views
+    function lastTimeRewardApplicable() external view returns (uint256);
+    function rewardPerToken() external view returns (uint256);
+    function rewards(address account) external view returns (uint256);
+    function earned(address account) external view returns (uint256);
+    function getRewardForDuration() external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    // Mutative
+    function stake(uint256 amount) external;
+    function withdraw(uint256 amount) external;
+    function getReward() external;
+    function exit() external;
+    // Events
+    event RewardAdded(uint256 reward);
+    event Staked(address indexed user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
+    event RewardPaid(address indexed user, uint256 reward);
+}
+
+interface IStakingRewards2 is IStakingRewards {
+	function totalMinted() external view returns (uint);
+	function weightOfGauge(address gauge) external view returns (uint);
+	function stakingPerLPT(address gauge) external view returns (uint);
+	
+	function stakeTimeOf(address account) external view returns (uint);
+	function stakeAgeOf(address account) external view returns (uint);
+	function factorOf(address account) external view returns (uint);
+
+	function spendTimeOf(address account) external view returns (uint);
+	function spendAgeOf(address account) external view returns (uint);
+	function coinAgeOf(address account) external view returns (uint);
+	
+    function spendCoinAge(address account, uint coinAge) external returns (uint);
+    
+    event SpentCoinAge(address indexed gauge, address indexed account, uint coinAge);
+}
+
 contract SSimpleGauge is LiquidityGauge, Configurable {
     using SafeMath for uint;
     using TransferHelper for address;
@@ -301,7 +340,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
 	uint public bufReward;
 	uint public lasttime;
 	
-	function initialize(address governor, address _minter, address _lp_token) public initializer {
+	function initialize(address governor, address _minter, address _lp_token) public virtual initializer {
 	    super.initialize(governor);
 	    
 	    minter      = _minter;
