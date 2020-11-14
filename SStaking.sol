@@ -61,8 +61,10 @@ contract SStaking is IStakingRewards2, Configurable {
 	    return totalMinted().mul(weightOfGauge(gauge)).div(LiquidityGauge(gauge).totalSupply());
 	}
 	
-	function stakeAgeOf(address account) virtual override public view returns (uint) {
-	    return now.sub(stakeTimeOf[account]);
+	function stakeAgeOf(address account) virtual override public view returns (uint age) {
+	    age = stakeTimeOf[account];
+	    if(age > 0)
+    	    age = now.sub(age);
 	}
 	
 	function factorOf(address account) virtual override external view returns (uint) {
@@ -77,8 +79,10 @@ contract SStaking is IStakingRewards2, Configurable {
             return 2.5 ether;
 	}
 
-	function spendAgeOf(address account) virtual override public view returns (uint) {
-	    return now.sub(spendTimeOf[account]);
+	function spendAgeOf(address account) virtual override public view returns (uint age) {
+	    age = spendTimeOf[account];
+	    if(age > 0)
+    	    age = now.sub(age);
 	}
 	
 	function coinAgeOf(address account) virtual override public view returns (uint) {

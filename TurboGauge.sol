@@ -19,14 +19,20 @@ contract TurboGauge is SExactGauge {
 	    staking = _staking;
 	}
 	
+	function lastCheckTime(address addr) internal view returns (uint t) {
+        t = integrate_checkpoint_of[addr]; 
+        if(t == 0)
+            t = IStakingRewards2(staking).stakeTimeOf(addr);
+	}
+	
 	function ratioStaking(address addr) public view returns (uint r) {
 	    if(balanceOf[addr] == 0)
 	        return 0;
         r = IStakingRewards2(staking).balanceOf(addr);
         r = r.mul(1 ether).div(IStakingRewards2(staking).stakingPerLPT(address(this)));
         r = r.mul(1 ether).div(balanceOf[addr]);
-        if(now > lasttime)
-            r = r.mul(IStakingRewards2(staking).spendAgeOf(addr)).div(now.sub(lasttime));
+        if(now > lastCheckTime(addr))
+            r = r.mul(IStakingRewards2(staking).spendAgeOf(addr)).div(now.sub(lastCheckTime(addr)));
 	}
 	
 	function factorOf(address addr) public view returns (uint f) {
@@ -40,7 +46,7 @@ contract TurboGauge is SExactGauge {
     function virtualBalanceOf(address addr) virtual public view returns (uint) {
         if(span == 0 || totalSupply == 0)
             return balanceOf[addr];
-        if(now == lasttime)
+        if(now == lastCheckTime(addr))
             return balanceOf[addr].add(lastTurboOf[addr]);
         return balanceOf[addr].mul(factorOf(addr)).div(1 ether);
     }
@@ -53,15 +59,20 @@ contract TurboGauge is SExactGauge {
         return virtualTotalSupply().add(vbo).sub(balanceOf[addr].add(lastTurboOf[addr]));
     }
     
-    function _virtual_claimable_last(uint delta, uint sumPer, uint lastSumPer, uint vbo, uint _vts) virtual internal view returns (uint amount) {
+    function _virtual_claimable_last(address addr, uint delta, uint sumPer, uint lastSumPer) virtual internal view returns (uint amount) {
         if(span == 0 || totalSupply == 0)
             return 0;
         
         amount = sumPer.sub(lastSumPer);
-        amount = amount.add(delta.mul(1 ether).div(_vts));
-        amount = amount.mul(vbo).div(1 ether);
+        amount = amount.add(delta.mul(1 ether).div(virtualTotalSupply()));
+        amount = amount.mul(balanceOf[addr].add(lastTurboOf[addr])).div(1 ether);
     }
 
+    function claimable_tokens(address addr) virtual override public view returns (uint r) {
+        r = integrate_fraction[addr].sub(Minter(minter).minted(addr, address(this)));
+        r = r.add(_virtual_claimable_last(addr, claimableDelta(), sumMiningPer, sumMiningPerOf[addr]));
+    }
+    
     function _checkpoint(address addr, bool _claim_rewards) virtual override internal {
         if(span == 0 || totalSupply == 0)
             return;
@@ -70,22 +81,25 @@ contract TurboGauge is SExactGauge {
         uint _vts = _virtualTotalSupply(addr, vbo);
         
         uint delta = claimableDelta();
-        uint amount = _virtual_claimable_last(delta, sumMiningPer, sumMiningPerOf[addr], vbo, _vts);
+        uint amount = _virtual_claimable_last(addr, delta, sumMiningPer, sumMiningPerOf[addr]);
         
-        if(delta != amount)
-            bufReward = bufReward.add(delta).sub(amount);
-        if(delta > 0)
+        //if(delta != amount)
+        //    bufReward = bufReward.add(delta).sub(amount);
+        if(delta > 0) {
+            integrate_fraction[address(0)] = integrate_fraction[address(0)].add(delta);     // total checked
             sumMiningPer = sumMiningPer.add(delta.mul(1 ether).div(_vts));
+        }
         if(sumMiningPerOf[addr] != sumMiningPer)
             sumMiningPerOf[addr] = sumMiningPer;
         if(lastTurboOf[addr] != vbo.sub(balanceOf[addr]))
             lastTurboOf[addr] = vbo.sub(balanceOf[addr]);
         if(lastTurboSupply != _vts.sub(totalSupply))
             lastTurboSupply = _vts.sub(totalSupply);
-        if(now > lasttime) {
-            uint coinAge = balanceOf[addr].mul(IStakingRewards2(staking).stakingPerLPT(address(this))).div(1 ether).mul(now.sub(lasttime));
+        if(now > lastCheckTime(addr)) {
+            uint coinAge = balanceOf[addr].mul(IStakingRewards2(staking).stakingPerLPT(address(this))).div(1 ether).mul(now.sub(lastCheckTime(addr)));
             IStakingRewards2(staking).spendCoinAge(addr, coinAge);
         }
+        integrate_checkpoint_of[addr] = now;
         lasttime = now;
 
         _checkpoint(addr, amount);

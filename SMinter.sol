@@ -337,8 +337,8 @@ contract SExactGauge is LiquidityGauge, Configurable {
 	uint public end;
 	mapping(address => uint) public sumMiningPerOf;
 	uint public sumMiningPer;
-	uint public bufReward;
-	uint public lasttime;
+	uint public bufReward;                              // obsoleted, instead of integrate_fraction[address(0)]
+	uint public lasttime;                               // repetition of integrate_checkpoint()
 	
 	function initialize(address governor, address _minter, address _lp_token) public virtual initializer {
 	    super.initialize(governor);
@@ -435,11 +435,12 @@ contract SExactGauge is LiquidityGauge, Configurable {
         amount = amount.add(delta.mul(1 ether).div(totalSupply));
         amount = amount.mul(balanceOf[addr]).div(1 ether);
     }
-    function claimableDelta() virtual internal view returns(uint amount) {
+    function claimableDelta() virtual public view returns(uint amount) {
         if(span == 0 || totalSupply == 0)
             return 0;
         
-        amount = SMinter(minter).quotas(address(this)).sub(bufReward);
+        //amount = SMinter(minter).quotas(address(this)).sub(bufReward);
+        amount = SMinter(minter).quotas(address(this)).add(Minter(minter).minted(address(0), address(this))).sub(integrate_fraction[address(0)]);
 
         if(end == 0) {                                                         // isNonLinear, endless
             if(now.sub(lasttime) < span)
@@ -473,10 +474,12 @@ contract SExactGauge is LiquidityGauge, Configurable {
         uint delta = claimableDelta();
         uint amount = _claimable_last(addr, delta, sumMiningPer, sumMiningPerOf[addr]);
         
-        if(delta != amount)
-            bufReward = bufReward.add(delta).sub(amount);
-        if(delta > 0)
+        //if(delta != amount)
+        //    bufReward = bufReward.add(delta).sub(amount);
+        if(delta > 0) {
+            integrate_fraction[address(0)] = integrate_fraction[address(0)].add(delta);     // total checked
             sumMiningPer = sumMiningPer.add(delta.mul(1 ether).div(totalSupply));
+        }
         if(sumMiningPerOf[addr] != sumMiningPer)
             sumMiningPerOf[addr] = sumMiningPer;
         lasttime = now;
@@ -672,6 +675,7 @@ contract SMinter is Minter, Configurable {
             quotas[gauge] = quotas[gauge].sub(to_mint);
             token.safeTransfer(_for, to_mint);
             minted[_for][gauge] = total_mint;
+            minted[address(0)][gauge] = minted[address(0)][gauge].add(to_mint);         // total minted of gauge
     
             emit Minted(_for, gauge, total_mint);
         }
