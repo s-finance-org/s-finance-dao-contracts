@@ -337,7 +337,7 @@ contract SExactGauge is LiquidityGauge, Configurable {
 	uint public end;
 	mapping(address => uint) public sumMiningPerOf;
 	uint public sumMiningPer;
-	uint public bufReward;                              // obsoleted, instead of integrate_fraction[address(0)]
+	uint internal bufReward;                            // obsoleted, instead of integrate_fraction[address(0)]
 	uint public lasttime;                               // repetition of integrate_checkpoint()
 	
 	function initialize(address governor, address _minter, address _lp_token) public virtual initializer {
